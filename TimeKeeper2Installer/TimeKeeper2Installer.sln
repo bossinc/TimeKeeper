@@ -1,0 +1,20 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "TimeKeeper2Installer", "TimeKeeper2Installer\TimeKeeper2Installer.vdproj", "{0DFD3500-99C5-4D22-9299-2B9DD836CC3C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Default = Debug|Default
+		Release|Default = Release|Default
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0DFD3500-99C5-4D22-9299-2B9DD836CC3C}.Debug|Default.ActiveCfg = Debug
+		{0DFD3500-99C5-4D22-9299-2B9DD836CC3C}.Debug|Default.Build.0 = Debug
+		{0DFD3500-99C5-4D22-9299-2B9DD836CC3C}.Release|Default.ActiveCfg = Release
+		{0DFD3500-99C5-4D22-9299-2B9DD836CC3C}.Release|Default.Build.0 = Release
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
