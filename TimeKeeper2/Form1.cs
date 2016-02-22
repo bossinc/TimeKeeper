@@ -51,12 +51,14 @@ namespace TimeKeeper2
             }
             set
             {
+                if (cbDrawing.Checked)
+                    return;
                 if (!dnuisAFK && value)
                 {
                     activeWindowTimes[lastIndexTicked] -= AFKTimeAmout;
                     TotalTimeWorking -= AFKTimeAmout;
                     btnStart_Click(null, EventArgs.Empty);
-                    MessageBox.Show("You are AFK. The past 5 minutes have been removed as time spent working, the counter has stopped and the file has been saved.",
+                    MessageBox.Show("You are AFK. The past 5 minutes has been removed as time spent working. The counter has stopped and the file has been saved.",
                         "Warning",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning,
@@ -74,6 +76,8 @@ namespace TimeKeeper2
 
         private int lastUpdateValueTV;
 
+        private bool isSaved = true;
+
         public MainForm()
         {
             SaveFileText = "";
@@ -83,7 +87,7 @@ namespace TimeKeeper2
 
         protected override void OnClosing(CancelEventArgs e)
         {
-            if(fileLocation != "")
+            if(!isSaved)
                 SaveFile();
             base.OnClosing(e);
         }
@@ -192,6 +196,7 @@ namespace TimeKeeper2
 
         public void SaveFile()
         {
+            isSaved = true;
             timer.Stop();
             lblEndingTime.Text = DateTime.Now.ToString();
 
@@ -296,10 +301,12 @@ namespace TimeKeeper2
                         return;
                     }
                 }
-                if (captionWindowLabel.Contains("porn") || captionWindowLabel.Contains("Porn") || captionWindowLabel.Contains("PORN") || captionWindowLabel.Contains("nsfw"))
+                if (captionWindowLabel.ToUpper().Contains("PORN") || captionWindowLabel.ToUpper().Contains("NSFW"))
                 {
                     if (fileLocation != "")
+                    {
                         SaveFile();
+                    }
                     else
                     {
                         timer.Stop();
@@ -308,7 +315,7 @@ namespace TimeKeeper2
                     return;
                 }
                 //makes sure it is not a loading form
-                if (captionWindowLabel.Contains("% complete"))
+                if (captionWindowLabel.ToUpper().Contains("% COMPLETE"))
                 {
                     return;
                 }
@@ -318,7 +325,7 @@ namespace TimeKeeper2
             else
             {
                 //makes sure it is not a loading form
-                if (captionWindowLabel.Contains("% com"))
+                if (captionWindowLabel.ToUpper().Contains("% COMPLETE"))
                 {
                     activeWindowTimes[0] += timer.Interval;
                 }
@@ -754,6 +761,7 @@ namespace TimeKeeper2
 
         private void btnStart_Click(object sender, EventArgs e)
         {
+            isSaved = false;
             if (lblStartingTime.Text == "")
             {
                 timer.Start();
@@ -790,6 +798,72 @@ namespace TimeKeeper2
                 openToolStripMenuItem.Enabled = false;
                 btnReview.Enabled = false;
                 lblStartingTime.Text = DateTime.Now.ToString();
+            }
+        }
+
+        private void deleteSelectionToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                for (int i = 0; dgvEntries.Rows.Count > i; i++)
+                {
+                    if (dgvEntries[0, i].Selected)
+                    {
+                        SaveEntriesText.RemoveAt(i);
+                    }
+                }
+
+                SaveFileText = "";
+                foreach (string s in SaveEntriesText)
+                {
+                    SaveFileText += s + "-End%^1-";
+                }
+                //Encrypts SaveFileText
+                EnigmaForce ef = new EnigmaForce();
+                byte[] encSave = ef.Encrypt(SaveFileText);
+
+                if (fileLocation == "")
+                {
+                    SaveFileDialog fileDialog = new SaveFileDialog();
+
+                    string relativePath = Path.Combine("../../../../Content");
+                    string contentPath = Path.GetFullPath(relativePath);
+
+                    fileDialog.InitialDirectory = contentPath;
+
+                    fileDialog.Title = "Save - Time Keeper 2";
+
+                    fileDialog.Filter = "Time Keeper 2 Files (*.tk2)|*.tk2";
+
+
+                    if (fileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        fileLocation = fileDialog.FileName;
+                        lblProjectName.Text = removeFilePath(fileLocation);
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+
+                //Writes SaveFileText to fileLocation
+                using (System.IO.StreamWriter file = new System.IO.StreamWriter(fileLocation))
+                {
+                    string temp = "";
+                    foreach (byte b in encSave)
+                    {
+                        temp += (char)b;
+                    }
+                    file.Write(temp);
+                }
+                OpenFile();
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("File is corrupted.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error, MessageBoxDefaultButton.Button1);
+                newToolStripMenuItem_Click(null, EventArgs.Empty);
+                return;
             }
         }
     }

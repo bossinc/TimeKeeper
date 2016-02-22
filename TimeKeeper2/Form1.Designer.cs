@@ -36,6 +36,8 @@
             this.fileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.newToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.editToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.deleteSelectionToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tbNotes = new System.Windows.Forms.TextBox();
             this.lblNotes = new System.Windows.Forms.Label();
             this.lblEndingTime = new System.Windows.Forms.Label();
@@ -49,6 +51,7 @@
             this.Column1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.btnReview = new System.Windows.Forms.Button();
             this.btnStart = new System.Windows.Forms.Button();
+            this.cbDrawing = new System.Windows.Forms.CheckBox();
             this.menuStrip.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvEntries)).BeginInit();
             this.SuspendLayout();
@@ -70,7 +73,8 @@
             // menuStrip
             // 
             this.menuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.fileToolStripMenuItem});
+            this.fileToolStripMenuItem,
+            this.editToolStripMenuItem});
             this.menuStrip.Location = new System.Drawing.Point(0, 0);
             this.menuStrip.Name = "menuStrip";
             this.menuStrip.Size = new System.Drawing.Size(784, 24);
@@ -99,6 +103,21 @@
             this.openToolStripMenuItem.Size = new System.Drawing.Size(103, 22);
             this.openToolStripMenuItem.Text = "Open";
             this.openToolStripMenuItem.Click += new System.EventHandler(this.openToolStripMenuItem_Click);
+            // 
+            // editToolStripMenuItem
+            // 
+            this.editToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.deleteSelectionToolStripMenuItem});
+            this.editToolStripMenuItem.Name = "editToolStripMenuItem";
+            this.editToolStripMenuItem.Size = new System.Drawing.Size(39, 20);
+            this.editToolStripMenuItem.Text = "Edit";
+            // 
+            // deleteSelectionToolStripMenuItem
+            // 
+            this.deleteSelectionToolStripMenuItem.Name = "deleteSelectionToolStripMenuItem";
+            this.deleteSelectionToolStripMenuItem.Size = new System.Drawing.Size(158, 22);
+            this.deleteSelectionToolStripMenuItem.Text = "Delete Selection";
+            this.deleteSelectionToolStripMenuItem.Click += new System.EventHandler(this.deleteSelectionToolStripMenuItem_Click);
             // 
             // tbNotes
             // 
@@ -233,11 +252,22 @@
             this.btnStart.UseVisualStyleBackColor = true;
             this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
+            // cbDrawing
+            // 
+            this.cbDrawing.AutoSize = true;
+            this.cbDrawing.Location = new System.Drawing.Point(289, 61);
+            this.cbDrawing.Name = "cbDrawing";
+            this.cbDrawing.Size = new System.Drawing.Size(65, 17);
+            this.cbDrawing.TabIndex = 26;
+            this.cbDrawing.Text = "Drawing";
+            this.cbDrawing.UseVisualStyleBackColor = true;
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(784, 441);
+            this.Controls.Add(this.cbDrawing);
             this.Controls.Add(this.btnStart);
             this.Controls.Add(this.btnReview);
             this.Controls.Add(this.dgvEntries);
@@ -286,6 +316,9 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn Column1;
         private System.Windows.Forms.Button btnReview;
         private System.Windows.Forms.Button btnStart;
+        private System.Windows.Forms.ToolStripMenuItem editToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem deleteSelectionToolStripMenuItem;
+        private System.Windows.Forms.CheckBox cbDrawing;
     }
 }
 
