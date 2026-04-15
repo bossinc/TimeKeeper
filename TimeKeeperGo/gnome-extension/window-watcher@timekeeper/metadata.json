@@ -1,0 +1,7 @@
+{
+  "name": "TimeKeeper Window Watcher",
+  "description": "Exposes the active window title via D-Bus for TimeKeeper",
+  "uuid": "window-watcher@timekeeper",
+  "shell-version": ["45", "46", "47", "48", "50"],
+  "version": 1
+}
