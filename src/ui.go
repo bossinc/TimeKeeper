@@ -2,84 +2,14 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/gotk3/gotk3/glib"
 	"github.com/gotk3/gotk3/gtk"
 )
 
-// treeNode is one node in the hierarchical window tree.
-type treeNode struct {
-	label    string
-	timeMs   int64
-	children []string // child keys
-}
-
-// treeData holds the flattened tree. Keys use tab as separator between levels.
-type treeData struct {
-	roots []string
-	nodes map[string]*treeNode
-}
-
-// buildTreeData converts a flat WindowTime list into a 3-level tree.
-// The rightmost " - " segment is the root (app name), working left toward the leaf.
-func buildTreeData(windows []WindowTime) *treeData {
-	td := &treeData{nodes: make(map[string]*treeNode)}
-	for _, w := range windows {
-		parts := strings.Split(w.Label, " - ")
-
-		rootKey := parts[len(parts)-1]
-		if td.nodes[rootKey] == nil {
-			td.nodes[rootKey] = &treeNode{label: rootKey}
-			td.roots = append(td.roots, rootKey)
-		}
-		if len(parts) == 1 {
-			td.nodes[rootKey].timeMs += w.TimeMs
-			continue
-		}
-
-		subLabel := parts[len(parts)-2]
-		subKey := rootKey + "\t" + subLabel
-		if td.nodes[subKey] == nil {
-			td.nodes[subKey] = &treeNode{label: subLabel}
-			td.nodes[rootKey].children = append(td.nodes[rootKey].children, subKey)
-		}
-		if len(parts) == 2 {
-			td.nodes[subKey].timeMs += w.TimeMs
-			continue
-		}
-
-		leafLabel := strings.Join(parts[:len(parts)-2], " - ")
-		leafKey := subKey + "\t" + leafLabel
-		if td.nodes[leafKey] == nil {
-			td.nodes[leafKey] = &treeNode{label: leafLabel}
-			td.nodes[subKey].children = append(td.nodes[subKey].children, leafKey)
-		}
-		td.nodes[leafKey].timeMs += w.TimeMs
-	}
-	// Roll up times to parents.
-	for _, rk := range td.roots {
-		root := td.nodes[rk]
-		for _, sk := range root.children {
-			sub := td.nodes[sk]
-			for _, lk := range sub.children {
-				sub.timeMs += td.nodes[lk].timeMs
-			}
-			root.timeMs += sub.timeMs
-		}
-	}
-	return td
-}
-
-// AppState holds all runtime state for the application.
+// AppState holds all UI widget references. Business state lives in app.
 type AppState struct {
-	sessions    []Session
-	currentFile string
-	tracker     *Tracker
-	selectedIdx int
-	td          *treeData
+	app *App
 
 	win          *gtk.Window
 	startBtn     *gtk.Button
@@ -96,9 +26,7 @@ type AppState struct {
 
 func newMainWindow() *gtk.Window {
 	st := &AppState{
-		tracker:     NewTracker(),
-		selectedIdx: -1,
-		td:          &treeData{nodes: make(map[string]*treeNode)},
+		app: NewApp(),
 	}
 
 	win, _ := gtk.WindowNew(gtk.WINDOW_TOPLEVEL)
@@ -106,7 +34,7 @@ func newMainWindow() *gtk.Window {
 	win.SetTitle("TimeKeeper")
 	win.SetDefaultSize(960, 620)
 	win.Connect("delete-event", func() bool {
-		if st.tracker.IsRunning() {
+		if st.app.Tracker.IsRunning() {
 			st.doStop()
 		}
 		return false
@@ -169,7 +97,7 @@ func (st *AppState) buildUI() {
 
 	drawingCheck, _ := gtk.CheckButtonNewWithLabel("Drawing Mode (disable AFK)")
 	drawingCheck.Connect("toggled", func() {
-		st.tracker.DrawingMode = drawingCheck.GetActive()
+		st.app.Tracker.DrawingMode = drawingCheck.GetActive()
 	})
 	topBox2.PackStart(drawingCheck, false, false, 0)
 
@@ -262,12 +190,12 @@ func (st *AppState) buildSessionList() (*gtk.TreeView, *gtk.ListStore) {
 	sel.Connect("changed", func() {
 		_, iter, ok := sel.GetSelected()
 		if !ok {
-			st.selectedIdx = -1
+			st.app.SelectedIdx = -1
 			return
 		}
 		path, _ := store.GetPath(iter)
 		if indices := path.GetIndices(); len(indices) > 0 {
-			st.selectedIdx = indices[0]
+			st.app.SelectedIdx = indices[0]
 		}
 	})
 
@@ -293,7 +221,7 @@ func (st *AppState) buildWindowTree() (*gtk.TreeView, *gtk.TreeStore) {
 
 func (st *AppState) refreshSessionList() {
 	st.sessionStore.Clear()
-	for _, s := range st.sessions {
+	for _, s := range st.app.Sessions {
 		iter := st.sessionStore.Append()
 		text := fmt.Sprintf("%s  %s", s.Start.Format("2006-01-02 15:04"), FormatTime(s.TotalMs()))
 		st.sessionStore.SetValue(iter, 0, text)
@@ -320,184 +248,6 @@ func (st *AppState) refreshWindowTree(td *treeData) {
 			}
 		}
 	}
-}
-
-func (st *AppState) onStartStop() {
-	if st.tracker.IsRunning() {
-		st.doStop()
-	} else {
-		st.doStart()
-	}
-}
-
-func (st *AppState) doStart() {
-	st.tracker.Reset()
-	st.windowStore.Clear()
-	st.setNotesText("")
-	st.startLabel.SetText(time.Now().Format("15:04:05"))
-	st.endLabel.SetText("")
-	st.startBtn.SetLabel("Stop")
-	st.reviewBtn.SetSensitive(false)
-
-	st.tracker.Start(
-		func() {
-			snap := st.tracker.Snapshot()
-			td := buildTreeData(snap)
-			totalMs := st.tracker.TotalMs()
-			glib.IdleAdd(func() bool {
-				st.refreshWindowTree(td)
-				st.timeLabel.SetText(FormatTime(totalMs))
-				return false
-			})
-		},
-		func() {
-			glib.IdleAdd(func() bool {
-				st.endLabel.SetText(time.Now().Format("15:04:05"))
-				st.startBtn.SetLabel("Start")
-				st.reviewBtn.SetSensitive(true)
-				st.finishSession()
-				st.showInfo("AFK Detected",
-					"You were idle for 5 minutes.\n"+
-						"5 minutes have been deducted and tracking has stopped.")
-				return false
-			})
-		},
-	)
-}
-
-func (st *AppState) doStop() {
-	st.tracker.Stop()
-	st.endLabel.SetText(time.Now().Format("15:04:05"))
-	st.startBtn.SetLabel("Start")
-	st.reviewBtn.SetSensitive(true)
-	st.finishSession()
-}
-
-func (st *AppState) finishSession() {
-	session := st.tracker.ToSession(st.getNotesText())
-	st.sessions = append(st.sessions, session)
-	st.refreshSessionList()
-
-	if st.currentFile == "" {
-		st.promptSaveAs()
-	} else {
-		if err := saveFile(st.currentFile, st.sessions); err != nil {
-			st.showError(err.Error())
-		}
-	}
-}
-
-func (st *AppState) promptSaveAs() {
-	dlg, _ := gtk.FileChooserDialogNewWith2Buttons(
-		"Save Session", st.win, gtk.FILE_CHOOSER_ACTION_SAVE,
-		"_Cancel", gtk.RESPONSE_CANCEL,
-		"_Save", gtk.RESPONSE_ACCEPT,
-	)
-	dlg.SetCurrentName("session.json")
-	filter, _ := gtk.FileFilterNew()
-	filter.AddPattern("*.json")
-	filter.SetName("JSON Session Files (*.json)")
-	dlg.AddFilter(filter)
-
-	if dlg.Run() == gtk.RESPONSE_ACCEPT {
-		path := dlg.GetFilename()
-		if !strings.HasSuffix(path, ".json") {
-			path += ".json"
-		}
-		st.currentFile = path
-		st.projectLabel.SetText(filepath.Base(path))
-		st.win.SetTitle(filepath.Base(path) + " - TimeKeeper")
-		if err := saveFile(st.currentFile, st.sessions); err != nil {
-			st.showError(err.Error())
-		}
-	}
-	dlg.Destroy()
-}
-
-func (st *AppState) onNew() {
-	if st.tracker.IsRunning() {
-		st.tracker.Stop()
-	}
-	st.sessions = nil
-	st.currentFile = ""
-	st.tracker.Reset()
-	st.timeLabel.SetText("0:00:00")
-	st.startLabel.SetText("")
-	st.endLabel.SetText("")
-	st.projectLabel.SetText("")
-	st.setNotesText("")
-	st.startBtn.SetLabel("Start")
-	st.reviewBtn.SetSensitive(true)
-	st.sessionStore.Clear()
-	st.windowStore.Clear()
-	st.win.SetTitle("TimeKeeper")
-}
-
-func (st *AppState) onOpen() {
-	dlg, _ := gtk.FileChooserDialogNewWith2Buttons(
-		"Open Session", st.win, gtk.FILE_CHOOSER_ACTION_OPEN,
-		"_Cancel", gtk.RESPONSE_CANCEL,
-		"_Open", gtk.RESPONSE_ACCEPT,
-	)
-	filter, _ := gtk.FileFilterNew()
-	filter.AddPattern("*.json")
-	filter.SetName("JSON Session Files (*.json)")
-	dlg.AddFilter(filter)
-
-	if dlg.Run() == gtk.RESPONSE_ACCEPT {
-		path := dlg.GetFilename()
-		sessions, err := loadFile(path)
-		if err != nil {
-			dlg.Destroy()
-			st.showError("Could not open file: " + err.Error())
-			return
-		}
-		st.currentFile = path
-		st.sessions = sessions
-		st.projectLabel.SetText(filepath.Base(path))
-		st.win.SetTitle(filepath.Base(path) + " - TimeKeeper")
-		st.refreshSessionList()
-		st.windowStore.Clear()
-		st.timeLabel.SetText("0:00:00")
-		st.startLabel.SetText("")
-		st.endLabel.SetText("")
-	}
-	dlg.Destroy()
-}
-
-func (st *AppState) onReview() {
-	if st.tracker.IsRunning() {
-		return
-	}
-	if st.selectedIdx < 0 || st.selectedIdx >= len(st.sessions) {
-		st.showInfo("No Selection", "Select a session from the list first.")
-		return
-	}
-	s := st.sessions[st.selectedIdx]
-	st.refreshWindowTree(buildTreeData(s.Windows))
-	st.timeLabel.SetText(FormatTime(s.TotalMs()))
-	st.startLabel.SetText(s.Start.Format("15:04:05"))
-	st.endLabel.SetText(s.End.Format("15:04:05"))
-	st.setNotesText(s.Notes)
-}
-
-func (st *AppState) onDeleteSelection() {
-	if st.selectedIdx < 0 || st.selectedIdx >= len(st.sessions) {
-		return
-	}
-	st.sessions = append(st.sessions[:st.selectedIdx], st.sessions[st.selectedIdx+1:]...)
-	st.selectedIdx = -1
-	st.refreshSessionList()
-	if st.currentFile != "" {
-		if err := saveFile(st.currentFile, st.sessions); err != nil {
-			st.showError(err.Error())
-		}
-	}
-	st.windowStore.Clear()
-	st.timeLabel.SetText("0:00:00")
-	st.startLabel.SetText("")
-	st.endLabel.SetText("")
-	st.setNotesText("")
 }
 
 func (st *AppState) getNotesText() string {

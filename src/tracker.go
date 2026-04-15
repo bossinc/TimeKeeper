@@ -7,7 +7,7 @@ import (
 
 const (
 	afkThreshold = 5 * time.Minute
-	tickInterval = 500 * time.Millisecond
+	tickInterval = time.Second
 )
 
 // Tracker polls the active window every tickInterval and accumulates time.
