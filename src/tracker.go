@@ -13,9 +13,11 @@ const (
 // Tracker polls the active window every tickInterval and accumulates time.
 type Tracker struct {
 	mu          sync.Mutex
-	entries     map[string]int64 // label → ms
-	order       []string         // insertion order
+	entries     map[string]int64     // label → ms
+	switches    map[string][]time.Time // label → switch timestamps
+	order       []string             // insertion order
 	totalMs     int64
+	prevLabel   string
 	isRunning   bool
 	DrawingMode bool
 	StartTime   time.Time
@@ -25,7 +27,10 @@ type Tracker struct {
 }
 
 func NewTracker() *Tracker {
-	return &Tracker{entries: make(map[string]int64)}
+	return &Tracker{
+		entries:  make(map[string]int64),
+		switches: make(map[string][]time.Time),
+	}
 }
 
 // Start begins tracking. onTick is called after each tick; onAFK is called if
@@ -83,6 +88,10 @@ func (t *Tracker) Start(onTick func(), onAFK func()) {
 					t.order = append(t.order, label)
 					t.entries[label] = 0
 				}
+				if label != t.prevLabel {
+					t.switches[label] = append(t.switches[label], now)
+					t.prevLabel = label
+				}
 				t.entries[label] += elapsed
 				t.totalMs += elapsed
 				t.mu.Unlock()
@@ -125,7 +134,10 @@ func (t *Tracker) Snapshot() []WindowTime {
 	defer t.mu.Unlock()
 	out := make([]WindowTime, 0, len(t.order))
 	for _, label := range t.order {
-		out = append(out, WindowTime{Label: label, TimeMs: t.entries[label]})
+		sw := t.switches[label]
+		swCopy := make([]time.Time, len(sw))
+		copy(swCopy, sw)
+		out = append(out, WindowTime{Label: label, TimeMs: t.entries[label], Switches: swCopy})
 	}
 	return out
 }
@@ -134,8 +146,10 @@ func (t *Tracker) Reset() {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.entries = make(map[string]int64)
+	t.switches = make(map[string][]time.Time)
 	t.order = nil
 	t.totalMs = 0
+	t.prevLabel = ""
 }
 
 func (t *Tracker) ToSession(notes string) Session {

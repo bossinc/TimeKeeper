@@ -1,6 +1,11 @@
 package main
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+var reNewItems = regexp.MustCompile(` - \d+ new items`)
 
 // treeNode is one node in the hierarchical window tree.
 type treeNode struct {
@@ -20,7 +25,7 @@ type treeData struct {
 func buildTreeData(windows []WindowTime) *treeData {
 	td := &treeData{nodes: make(map[string]*treeNode)}
 	for _, w := range windows {
-		parts := strings.Split(w.Label, " - ")
+		parts := strings.Split(reNewItems.ReplaceAllString(w.Label, ""), " - ")
 
 		rootKey := parts[len(parts)-1]
 		if td.nodes[rootKey] == nil {

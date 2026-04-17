@@ -9,8 +9,9 @@ import (
 
 // WindowTime is a single tracked window entry with accumulated time.
 type WindowTime struct {
-	Label  string `json:"label"`
-	TimeMs int64  `json:"time_ms"`
+	Label     string      `json:"label"`
+	TimeMs    int64       `json:"time_ms"`
+	Switches  []time.Time `json:"switches,omitempty"`
 }
 
 // Session is one tracking session (start → stop).
